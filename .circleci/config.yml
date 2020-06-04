@@ -1,0 +1,67 @@
+version: 2.1
+
+orbs:
+  node: circleci/node@2.1.0
+
+executors:
+  node:
+    docker:
+    - image: circleci/node:10
+
+jobs:
+  node-server: 
+    executor: node
+    steps:
+      - checkout
+      - run: 
+          command: npm install
+          working_directory: ./server
+      - run:
+          command: npm test
+          working_directory: ./server
+
+  react-client:
+    executor: node
+    steps:
+      - checkout
+      - run: 
+          command: npm install
+          working_directory: ./client
+      - run: 
+          command: npm test
+          working_directory: ./client
+
+  docker-publish:
+    machine: true
+    steps:
+      - checkout
+      - run:
+          command: |
+            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_LOGIN" --password-stdin
+            sudo docker build ./server -t kjop118/node-server:latest
+            sudo docker push kjop118/node-server:latest
+      - run:
+          command: |
+            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_LOGIN" --password-stdin
+            sudo docker build ./client -t kjop118/react-client:latest
+            sudo docker push kjop118/react-client:latest
+
+workflows:
+  version: 2
+  build_deploy:
+    jobs:
+      - node-server:
+          filters:
+            branches:
+              only: master
+      - react-client:
+          filters:
+            branches:
+              only: master
+      - docker-publish:
+          requires:
+            - node-server
+            - react-client
+          filters:
+            branches:
+              only: master
